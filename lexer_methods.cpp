@@ -5,9 +5,9 @@
 #include "classes_for_lexer.cpp"
 using namespace std;
 
-bool isskip(char ch)
+bool isterm(char ch)
 {
-    return (ch == '(' || ch == ')' || ch == '{' || ch == '}');
+    return (ch == ';' || ch == '(' || ch == ')' || ch == '{' || ch == '}');
 }
 
 Lexer::Lexer(const string &text) : input(text), pos(0)
@@ -36,15 +36,13 @@ State Lexer::nextState(char ch)
             return IDENT;
         if (isdigit(ch))
             return INT;
-        if (isspace(ch) || ch == ';')
-            return START;
         if (ch == '=')
             return EQU;
         if (ch == '<')
             return LES;
         if (ch == '>')
             return GRT;
-        if (ch == ';')
+        if (isterm(ch))
             return Z;
         if (ch == '\0')
             return FIN;
@@ -53,7 +51,7 @@ State Lexer::nextState(char ch)
     case IDENT:
         if (isalnum(ch))
             return IDENT;
-        if (isspace(ch) || ch == ';')
+        if (isterm(ch))
             return Z;
         if (ch == '\0')
             return FIN;
@@ -66,7 +64,7 @@ State Lexer::nextState(char ch)
             return DOT;
         if (isalpha(ch))
             return ERR;
-        if (isspace(ch) || ch == ';')
+        if (isterm(ch))
             return Z;
         if (ch == '\0')
             return FIN;
@@ -80,6 +78,8 @@ State Lexer::nextState(char ch)
     case FLOAT:
         if (isdigit(ch))
             return FLOAT;
+        if (isterm(ch))
+            return Z;
         if (isalpha(ch) || ch == '.')
             return ERR;
         if (ch == '\0')
@@ -87,21 +87,21 @@ State Lexer::nextState(char ch)
         return Z_STAR;
 
     case LES:
-        if (ch == '=' || ch == '>' || isskip(ch) || isspace(ch))
+        if (ch == '=' || ch == '>' || isterm(ch))
             return Z;
         if (isalnum(ch))
             return Z_STAR;
         return ERR;
 
     case GRT:
-        if (ch == '=' || isskip(ch) || isspace(ch))
+        if (ch == '=' || isterm(ch))
             return Z;
         if (isalnum(ch))
             return Z_STAR;
         return ERR;
 
     case EQU:
-        if (ch == '=' || isskip(ch) || isspace(ch))
+        if (ch == '=' || isterm(ch))
             return Z;
         if (isalnum(ch))
             return Z_STAR;
@@ -147,6 +147,7 @@ Token Lexer::makeToken(const string &lexeme)
             return Token(DELIMITER, lexeme);
         throw std::runtime_error("Unexpected delimiter");
     default:
+        cout << current_state;
         throw runtime_error("Invalid token");
     }
 }
@@ -158,12 +159,12 @@ Token Lexer::getNextToken()
     string lexeme;
     while (currentChar != EOF && currentChar != '\0')
     {
-        while (isskip(currentChar))
+        while (isspace(currentChar))
         {
             advance();
         }
         nextState = this->nextState(currentChar);
-        if (nextState == ERR)
+        if (nextState == ERR || nextState == FIN)
         {
             current_state = nextState;
         }
@@ -181,7 +182,7 @@ Token Lexer::getNextToken()
             current_state = START;
             return token;
         }
-        if (current_state != Z_STAR && !isspace(currentChar))
+        if (current_state != Z_STAR)
             lexeme += currentChar;
         current_state = nextState;
         advance();
