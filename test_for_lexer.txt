@@ -5,8 +5,3 @@ if (x <= 15) {
 else {
 	a = 6.28
 }
-while (a > 1) {
-	a = a - 1;
-	x = a * x;
-}
-print (x);
