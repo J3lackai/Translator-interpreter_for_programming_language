@@ -7,7 +7,7 @@ using namespace std;
 
 bool isskip(char ch)
 {
-    return (ch == ';' || ch == '(' || ch == ')' || ch == '{' || ch == '}');
+    return (ch == '(' || ch == ')' || ch == '{' || ch == '}');
 }
 
 Lexer::Lexer(const string &text) : input(text), pos(0)
@@ -36,7 +36,7 @@ State Lexer::nextState(char ch)
             return IDENT;
         if (isdigit(ch))
             return INT;
-        if (isspace(ch))
+        if (isspace(ch) || ch == ';')
             return START;
         if (ch == '=')
             return EQU;
@@ -53,7 +53,7 @@ State Lexer::nextState(char ch)
     case IDENT:
         if (isalnum(ch))
             return IDENT;
-        if (isspace(ch))
+        if (isspace(ch) || ch == ';')
             return Z;
         if (ch == '\0')
             return FIN;
@@ -66,7 +66,7 @@ State Lexer::nextState(char ch)
             return DOT;
         if (isalpha(ch))
             return ERR;
-        if (isspace(ch))
+        if (isspace(ch) || ch == ';')
             return Z;
         if (ch == '\0')
             return FIN;
@@ -87,21 +87,21 @@ State Lexer::nextState(char ch)
         return Z_STAR;
 
     case LES:
-        if (ch == '=' || ch == '>' || isskip(ch))
+        if (ch == '=' || ch == '>' || isskip(ch) || isspace(ch))
             return Z;
         if (isalnum(ch))
             return Z_STAR;
         return ERR;
 
     case GRT:
-        if (ch == '=' || isskip(ch))
+        if (ch == '=' || isskip(ch) || isspace(ch))
             return Z;
         if (isalnum(ch))
             return Z_STAR;
         return ERR;
 
     case EQU:
-        if (ch == '=' || isskip(ch))
+        if (ch == '=' || isskip(ch) || isspace(ch))
             return Z;
         if (isalnum(ch))
             return Z_STAR;
@@ -153,7 +153,7 @@ Token Lexer::makeToken(const string &lexeme)
 
 Token Lexer::getNextToken()
 {
-    current_state = START;
+
     State nextState = current_state;
     string lexeme;
     while (currentChar != EOF && currentChar != '\0')
@@ -163,6 +163,10 @@ Token Lexer::getNextToken()
             advance();
         }
         nextState = this->nextState(currentChar);
+        if (nextState == ERR)
+        {
+            current_state = nextState;
+        }
         if (nextState == Z || nextState == Z_STAR || nextState == ERR)
         { // Токен делаем и для ERR чтобы обработать было проще.
             // Если достигнуто состояние Z или Z*, создаем токен
@@ -174,10 +178,10 @@ Token Lexer::getNextToken()
                 pos--;                    // Откат позиции
                 currentChar = input[pos]; // Обновляем текущий символ
             }
-
+            current_state = START;
             return token;
         }
-        if (current_state != Z_STAR)
+        if (current_state != Z_STAR && !isspace(currentChar))
             lexeme += currentChar;
         current_state = nextState;
         advance();

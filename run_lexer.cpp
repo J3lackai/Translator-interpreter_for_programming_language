@@ -14,12 +14,10 @@ string convert(string filename) // преобразование файла в о
         return "NULL";
 
     while (getline(input, temp)) // Если getline(input, temp) с ошибкой считался значит закончили (вернул False), input.eof не нужон
-        text += temp + '\n';
-    if (!text.empty()) // Очень важно. В исходном файле был символ \0, но getline его не записывает в переменную, значит добавляем
-        text[text.size() - 1] = '\0';
-    else
-        text += '\0';
+        text += temp;
+    text += '\0';
     input.close();
+    cout << text;
     return text;
 }
 int main()
