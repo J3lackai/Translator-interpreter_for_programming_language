@@ -7,7 +7,7 @@ using namespace std;
 
 bool isskip(char ch)
 {
-    return (isspace(ch) || ch == ';' || ch == '(' || ch == ')' || ch == '{' || ch == '}');
+    return (ch == ';' || ch == '(' || ch == ')' || ch == '{' || ch == '}');
 }
 
 Lexer::Lexer(const string &text) : input(text), pos(0)
@@ -36,7 +36,7 @@ State Lexer::nextState(char ch)
             return IDENT;
         if (isdigit(ch))
             return INT;
-        if (isskip(ch))
+        if (isspace(ch))
             return START;
         if (ch == '=')
             return EQU;
@@ -53,7 +53,7 @@ State Lexer::nextState(char ch)
     case IDENT:
         if (isalnum(ch))
             return IDENT;
-        if (isskip(ch))
+        if (isspace(ch))
             return Z;
         if (ch == '\0')
             return FIN;
@@ -66,7 +66,7 @@ State Lexer::nextState(char ch)
             return DOT;
         if (isalpha(ch))
             return ERR;
-        if (isskip(ch))
+        if (isspace(ch))
             return Z;
         if (ch == '\0')
             return FIN;
