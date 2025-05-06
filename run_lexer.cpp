@@ -246,9 +246,10 @@ Token Lexer::getNextToken()
         nextState = this->nextState(currentChar);
         if (nextState == ERR)
             current_state = nextState;
-        
-
-        if (nextState == Z || nextState == Z_STAR || nextState == ERR) {
+        if (current_state == LES || current_state == GRT || current_state == EQU)
+            advance();
+        if (nextState == Z)
+        {
             if (current_state == START)
             {
                 current_state = nextState;
