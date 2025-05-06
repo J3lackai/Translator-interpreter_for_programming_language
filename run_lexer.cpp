@@ -11,20 +11,19 @@ enum TokenType
     FLOAT_CONST, // Вещественная константа
     OPERATOR,    // Оператор
     DELIMITER,   // Разделитель
-    KEYWORD     // Ключевое слово
+    KEYWORD      // Ключевое слово
 };
 
-struct Token 
+struct Token
 {
     TokenType type;
     string str_;
     int int_;
     float flo_;
 
-    Token(TokenType t, const string& v) : type(t), str_(v), int_(0), flo_(0) {}
-    Token(TokenType t, const int& v) : type(t), str_(""), int_(v), flo_(0) {}
-    Token(TokenType t, const float& v) : type(t), str_(""), int_(0), flo_(v) {}
-
+    Token(TokenType t, const string &v) : type(t), str_(v), int_(0), flo_(0) {}
+    Token(TokenType t, const int &v) : type(t), str_(""), int_(v), flo_(0) {}
+    Token(TokenType t, const float &v) : type(t), str_(""), int_(0), flo_(v) {}
 };
 
 enum State
@@ -58,13 +57,13 @@ private:
     float d = 1;
 
     // Вспомогательные функции
-    void advance();                  // Переход к следующему символу
-    State nextState(char);           // Определение следующего состояния
-    Token makeToken(); // Создание токена
+    void advance();        // Переход к следующему символу
+    State nextState(char); // Определение следующего состояния
+    Token makeToken();     // Создание токена
     void Programs(int);
 
 public:
-    Lexer(const string& text); // Конструктор
+    Lexer(const string &text); // Конструктор
     Token getNextToken();      // Получение следующего токена
     int get_pos();
 };
@@ -81,10 +80,10 @@ bool isdelim(char ch)
 
 bool isOperator(char ch)
 {
-    return(ch == '+' || ch == '-' || ch == '*' || ch == '/');
+    return (ch == '+' || ch == '-' || ch == '*' || ch == '/');
 }
 
-Lexer::Lexer(const string& text) : input(text), pos(0), row(0), column(0)
+Lexer::Lexer(const string &text) : input(text), pos(0), row(0), column(0)
 {
     current_state = START;
     if (!input.empty())
@@ -133,7 +132,8 @@ void Lexer::advance()
         currentChar = input[pos];
     else
         currentChar = '\0'; // Конец строки
-    if (currentChar == '\n') {
+    if (currentChar == '\n')
+    {
         row++;
         column = 0;
     }
@@ -141,60 +141,134 @@ void Lexer::advance()
 
 State Lexer::nextState(char ch)
 {
-    switch (current_state) {
+    switch (current_state)
+    {
     case START:
-        if (isalpha(ch)) { Programs(1); return IDENT; }
-        if (isdigit(ch)) { Programs(2); return INT;}
-        if (ch == '=') { Programs(7); return EQU; }
-        if (ch == '<') { Programs(7); return LES; }
-        if (ch == '>') { Programs(7); return GRT; }
-        if (isdelim(ch) || isOperator(ch)) {Programs(7); return Z; }
-        if (isspace(ch)) return START;
+        if (isalpha(ch))
+        {
+            Programs(1);
+            return IDENT;
+        }
+        if (isdigit(ch))
+        {
+            Programs(2);
+            return INT;
+        }
+        if (ch == '=')
+        {
+            Programs(7);
+            return EQU;
+        }
+        if (ch == '<')
+        {
+            Programs(7);
+            return LES;
+        }
+        if (ch == '>')
+        {
+            Programs(7);
+            return GRT;
+        }
+        if (isdelim(ch) || isOperator(ch))
+        {
+            Programs(7);
+            return Z;
+        }
+        if (isspace(ch))
+            return START;
         return ERR;
 
     case IDENT:
-        if (isalnum(ch)) { Programs(3); return IDENT; }
-        if (isdelim(ch) || isOperator(ch)) return Z;
+        if (isalnum(ch))
+        {
+            Programs(3);
+            return IDENT;
+        }
+        if (isdelim(ch) || isOperator(ch))
+            return Z;
         return Z;
 
     case INT:
-        if (isdigit(ch)) { Programs(4); return INT; }
-        if (ch == '.') { Programs(5);  return DOT; }
-        if (isdelim(ch) || isOperator(ch)) return Z;
-        if (isspace(ch)) return Z;
-        if (isalpha(ch)) return ERR;
+        if (isdigit(ch))
+        {
+            Programs(4);
+            return INT;
+        }
+        if (ch == '.')
+        {
+            Programs(5);
+            return DOT;
+        }
+        if (isdelim(ch) || isOperator(ch))
+            return Z;
+        if (isspace(ch))
+            return Z;
+        if (isalpha(ch))
+            return ERR;
         return Z;
 
     case DOT:
-        if (isdigit(ch)) {Programs(6); return FLOAT;}
+        if (isdigit(ch))
+        {
+            Programs(6);
+            return FLOAT;
+        }
         return ERR;
 
     case FLOAT:
-        if (isdigit(ch)) { Programs(6); return FLOAT; }
-        if (isdelim(ch) || isOperator(ch)) return Z;
-        if (isalpha(ch) || ch == '.') return ERR;
-        if (isspace(ch)) return Z;
+        if (isdigit(ch))
+        {
+            Programs(6);
+            return FLOAT;
+        }
+        if (isdelim(ch) || isOperator(ch))
+            return Z;
+        if (isalpha(ch) || ch == '.')
+            return ERR;
+        if (isspace(ch))
+            return Z;
         return Z;
 
     case LES:
-        if (ch == '=' || ch == '>') { Programs(8); return Z; }
-        if (isdelim(ch) || isOperator(ch)) return Z;
-        if (isalnum(ch)) return Z;
-        if (isspace(ch)) return Z;
+        if (ch == '=' || ch == '>')
+        {
+            Programs(8);
+            return Z;
+        }
+        if (isdelim(ch) || isOperator(ch))
+            return Z;
+        if (isalnum(ch))
+            return Z;
+        if (isspace(ch))
+            return Z;
         return ERR;
 
     case GRT:
-        if (ch == '=') { Programs(8); return Z; }
-        if (isdelim(ch) || isOperator(ch)) return Z;
-        if (isalnum(ch)) return Z;
-        if (isspace(ch)) return Z;
+        if (ch == '=')
+        {
+            Programs(8);
+            return Z;
+        }
+        if (isdelim(ch) || isOperator(ch))
+            return Z;
+        if (isalnum(ch))
+            return Z;
+        if (isspace(ch))
+            return Z;
         return ERR;
 
     case EQU:
-        if (ch == '=') { Programs(8); return Z; }
-        if (isdelim(ch) || isOperator(ch)) return Z;
-        if (isalnum(ch)) return Z;
-        if (isspace(ch)) return Z;
+        if (ch == '=')
+        {
+            Programs(8);
+            return Z;
+        }
+        if (isdelim(ch) || isOperator(ch))
+            return Z;
+        if (isalnum(ch))
+            return Z;
+        if (isspace(ch))
+            return Z;
         return ERR;
 
     default:
@@ -206,7 +280,7 @@ Token Lexer::makeToken()
 {
     unordered_map<string, TokenType>::const_iterator it; // Выносим объявление
     static unordered_map<string, TokenType> keywords = {
-        {"if", KEYWORD}, {"else", KEYWORD}, {"while", KEYWORD}, {"print", KEYWORD}, {"read", KEYWORD} };
+        {"if", KEYWORD}, {"else", KEYWORD}, {"while", KEYWORD}, {"print", KEYWORD}, {"read", KEYWORD}};
     switch (current_state)
     {
     case IDENT:
@@ -227,7 +301,7 @@ Token Lexer::makeToken()
     case EQU:
         return Token(OPERATOR, op);
     case Z:
-        if (op == "(" || op == ")" || op == "{" || op == "}" || op == ";" )
+        if (op == "(" || op == ")" || op == "{" || op == "}" || op == ";")
             return Token(DELIMITER, op);
         if (op == "/" || op == "*" || op == "-" || op == "+")
             return Token(OPERATOR, op);
@@ -241,21 +315,21 @@ Token Lexer::makeToken()
 Token Lexer::getNextToken()
 {
     State nextState = current_state;
-    while (currentChar != EOF && currentChar != '\0' || !currentChar)
+    while (currentChar != EOF && currentChar != '\0' && currentChar)
     {
         nextState = this->nextState(currentChar);
         if (nextState == ERR)
             current_state = nextState;
         if (current_state == LES || current_state == GRT || current_state == EQU)
             advance();
-        if (nextState == Z)
+        if (nextState == Z || current_state == ERR)
         {
             if (current_state == START)
             {
                 current_state = nextState;
                 advance();
             }
-            
+
             Token token = makeToken();
             d = 1;
             current_state = START;
@@ -278,7 +352,8 @@ string convert(string filename) // преобразование файла в о
     if (!input.is_open())
         return "NULL";
 
-    while (getline(input, temp)) { // Если getline(input, temp) с ошибкой считался значит закончили (вернул False), input.eof не нужон
+    while (getline(input, temp))
+    { // Если getline(input, temp) с ошибкой считался значит закончили (вернул False), input.eof не нужон
         text += temp;
         text += "\n";
     }
@@ -291,9 +366,10 @@ string convert(string filename) // преобразование файла в о
 
 int main()
 {
-    string filename = "test.txt";
+    string filename = "C:\\C_Projects\\lexer\\hz\\test.txt";
     string text = convert(filename);
-    if (text == "NULL") {
+    if (text == "NULL")
+    {
         // Обрабатываем кейс когда файл не найден.
         cout << "The file for reading was not found in the directory.";
         return 1;
@@ -301,7 +377,8 @@ int main()
     Lexer lexer(text);
 
     int sz = text.size();
-    while (lexer.get_pos() != (sz - 2)) {
+    while (lexer.get_pos() != (sz - 2))
+    {
         Token token = lexer.getNextToken();
         cout << "Token Type: " << token.type << ", Value: ";
         if ((token.str_).size())
@@ -314,8 +391,10 @@ int main()
     }
 
     if (lexer.get_pos() == (sz - 2))
+    {
         cout << "End of lexical analysis";
-    else
-        cout << "Error during lexical analysis";
+        return 0;
+    }
+    cout << "Error during lexical analysis";
     return 1;
 }
