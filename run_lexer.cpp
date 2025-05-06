@@ -6,53 +6,66 @@ using namespace std;
 
 enum TokenType
 {
-    ID,          // Идентификатор
-    INT_CONST,   // Целочисленная константа
-    FLOAT_CONST, // Вещественная константа
-    OPERATOR,    // Оператор
-    DELIMITER,   // Разделитель
-    KEYWORD     // Ключевое слово
+    ID,          // РРґРµРЅС‚РёС„РёРєР°С‚РѕСЂ
+    INT_CONST,   // Р¦РµР»РѕС‡РёСЃР»РµРЅРЅР°СЏ РєРѕРЅСЃС‚Р°РЅС‚Р°
+    FLOAT_CONST, // Р’РµС‰РµСЃС‚РІРµРЅРЅР°СЏ РєРѕРЅСЃС‚Р°РЅС‚Р°
+    OPERATOR,    // РћРїРµСЂР°С‚РѕСЂ
+    DELIMITER,   // Р Р°Р·РґРµР»РёС‚РµР»СЊ
+    KEYWORD     // РљР»СЋС‡РµРІРѕРµ СЃР»РѕРІРѕ
 };
 
-struct Token
+struct Token 
 {
     TokenType type;
-    string value;
+    string str_;
+    int int_;
+    float flo_;
 
-    Token(TokenType t, const string& v) : type(t), value(v) {}
+    Token(TokenType t, const string& v) : type(t), str_(v), int_(0), flo_(0) {}
+    Token(TokenType t, const int& v) : type(t), str_(""), int_(v), flo_(0) {}
+    Token(TokenType t, const float& v) : type(t), str_(""), int_(0), flo_(v) {}
+
 };
 
 enum State
 {
-    START,  // Начальное состояние
-    IDENT,  // Идентификатор
-    INT,    // Целое число
-    DOT,    // Точка в числе
-    FLOAT,  // Вещественное число
-    LES,    // Меньше ("<")
-    GRT,    // Больше (">")
-    EQU,    // Равно ("=")
-    Z,      // Лексема распознана
-    Z_STAR, // Лексема распознана с откатом
-    ERR     // Ошибка
+    START,  // РќР°С‡Р°Р»СЊРЅРѕРµ СЃРѕСЃС‚РѕСЏРЅРёРµ
+    IDENT,  // РРґРµРЅС‚РёС„РёРєР°С‚РѕСЂ
+    INT,    // Р¦РµР»РѕРµ С‡РёСЃР»Рѕ
+    DOT,    // РўРѕС‡РєР° РІ С‡РёСЃР»Рµ
+    FLOAT,  // Р’РµС‰РµСЃС‚РІРµРЅРЅРѕРµ С‡РёСЃР»Рѕ
+    LES,    // РњРµРЅСЊС€Рµ ("<")
+    GRT,    // Р‘РѕР»СЊС€Рµ (">")
+    EQU,    // Р Р°РІРЅРѕ ("=")
+    Z,      // Р›РµРєСЃРµРјР° СЂР°СЃРїРѕР·РЅР°РЅР°
+    Z_STAR, // Р›РµРєСЃРµРјР° СЂР°СЃРїРѕР·РЅР°РЅР° СЃ РѕС‚РєР°С‚РѕРј
+    ERR     // РћС€РёР±РєР°
 };
 
 class Lexer
 {
 private:
-    string input;        // Входной текст
-    size_t pos;          // Текущая позиция в тексте
-    State current_state; // Текущее состояние, выделил потому чтобы кучу раз во все функции не передавать аргументом.
-    char currentChar;    // Текущий символ
+    string input;        // Р’С…РѕРґРЅРѕР№ С‚РµРєСЃС‚
+    size_t pos;          // РўРµРєСѓС‰Р°СЏ РїРѕР·РёС†РёСЏ РІ С‚РµРєСЃС‚Рµ
+    State current_state; // РўРµРєСѓС‰РµРµ СЃРѕСЃС‚РѕСЏРЅРёРµ, РІС‹РґРµР»РёР» РїРѕС‚РѕРјСѓ С‡С‚РѕР±С‹ РєСѓС‡Сѓ СЂР°Р· РІРѕ РІСЃРµ С„СѓРЅРєС†РёРё РЅРµ РїРµСЂРµРґР°РІР°С‚СЊ Р°СЂРіСѓРјРµРЅС‚РѕРј.
+    char currentChar;    // РўРµРєСѓС‰РёР№ СЃРёРјРІРѕР»
+    size_t row;
+    size_t column;
+    string name;
+    int num;
+    float flo;
+    string op;
+    float d = 1;
 
-    // Вспомогательные функции
-    void advance();                  // Переход к следующему символу
-    State nextState(char);           // Определение следующего состояния
-    Token makeToken(const string&); // Создание токена
+    // Р’СЃРїРѕРјРѕРіР°С‚РµР»СЊРЅС‹Рµ С„СѓРЅРєС†РёРё
+    void advance();                  // РџРµСЂРµС…РѕРґ Рє СЃР»РµРґСѓСЋС‰РµРјСѓ СЃРёРјРІРѕР»Сѓ
+    State nextState(char);           // РћРїСЂРµРґРµР»РµРЅРёРµ СЃР»РµРґСѓСЋС‰РµРіРѕ СЃРѕСЃС‚РѕСЏРЅРёСЏ
+    Token makeToken(); // РЎРѕР·РґР°РЅРёРµ С‚РѕРєРµРЅР°
+    void Programs(int);
 
 public:
-    Lexer(const string& text); // Конструктор
-    Token getNextToken();      // Получение следующего токена
+    Lexer(const string& text); // РљРѕРЅСЃС‚СЂСѓРєС‚РѕСЂ
+    Token getNextToken();      // РџРѕР»СѓС‡РµРЅРёРµ СЃР»РµРґСѓСЋС‰РµРіРѕ С‚РѕРєРµРЅР°
     int get_pos();
 };
 
@@ -71,78 +84,117 @@ bool isOperator(char ch)
     return(ch == '+' || ch == '-' || ch == '*' || ch == '/');
 }
 
-Lexer::Lexer(const string& text) : input(text), pos(0)
+Lexer::Lexer(const string& text) : input(text), pos(0), row(0), column(0)
 {
     current_state = START;
     if (!input.empty())
         currentChar = input[pos];
     else
-        currentChar = '\0'; // Конец строки
+        currentChar = '\0'; // РљРѕРЅРµС† СЃС‚СЂРѕРєРё
+}
+
+void Lexer::Programs(int c)
+{
+    switch (c)
+    {
+    case 1:
+        name = currentChar;
+        break;
+    case 2:
+        num = currentChar - 48;
+        break;
+    case 3:
+        name += currentChar;
+        break;
+    case 4:
+        num = num * 10 + (currentChar - 48);
+        break;
+    case 5:
+        flo = num;
+        break;
+    case 6:
+        d = d * 0.1;
+        flo = flo + (currentChar - 48) * d;
+        break;
+    case 7:
+        op = currentChar;
+        break;
+    case 8:
+        op += currentChar;
+        break;
+    }
 }
 
 void Lexer::advance()
 {
     pos++;
-    if (pos < input.size()) // Проверка
+    column++;
+    if (pos < input.size()) // РџСЂРѕРІРµСЂРєР°
         currentChar = input[pos];
     else
-        currentChar = '\0'; // Конец строки
+        currentChar = '\0'; // РљРѕРЅРµС† СЃС‚СЂРѕРєРё
+    if (currentChar == '\n') {
+        row++;
+        column = 0;
+    }
 }
 
 State Lexer::nextState(char ch)
 {
     switch (current_state) {
     case START:
-        if (isalpha(ch)) return IDENT;
-        if (isdigit(ch)) return INT;
-        //if (isspace(ch)) return START;
-        if (ch == '=') return EQU;
-        if (ch == '<') return LES;
-        if (ch == '>') return GRT;
-        if (isdelim(ch) || isOperator(ch)) return Z;
+        if (isalpha(ch)) { Programs(1); return IDENT; }
+        if (isdigit(ch)) { Programs(2); return INT;}
+        if (ch == '=') { Programs(7); return EQU; }
+        if (ch == '<') { Programs(7); return LES; }
+        if (ch == '>') { Programs(7); return GRT; }
+        if (isdelim(ch) || isOperator(ch)) {Programs(7); return Z; }
+        if (isspace(ch)) return START;
         return ERR;
 
     case IDENT:
-        if (isalnum(ch)) return IDENT;
-        //if (isspace(ch)) return Z;
+        if (isalnum(ch)) { Programs(3); return IDENT; }
         if (isdelim(ch) || isOperator(ch)) return Z;
         return Z;
 
     case INT:
-        if (isdigit(ch)) return INT;
-        if (ch == '.') return DOT;
-        if (isalpha(ch)) return ERR;
-        //if (isspace(ch)) return Z;
+        if (isdigit(ch)) { Programs(4); return INT; }
+        if (ch == '.') { Programs(5);  return DOT; }
         if (isdelim(ch) || isOperator(ch)) return Z;
+        if (isspace(ch)) return Z;
+        if (isalpha(ch)) return ERR;
         return Z;
 
     case DOT:
-        if (isdigit(ch)) return FLOAT;
+        if (isdigit(ch)) {Programs(6); return FLOAT;}
         return ERR;
 
     case FLOAT:
-        if (isdigit(ch)) return FLOAT;
-        if (isalpha(ch) || ch == '.') return ERR;
-        //if (isspace(ch)) return Z;
+        if (isdigit(ch)) { Programs(6); return FLOAT; }
         if (isdelim(ch) || isOperator(ch)) return Z;
+        if (isalpha(ch) || ch == '.') return ERR;
+        if (isspace(ch)) return Z;
         return Z;
 
     case LES:
-        //if (isspace(ch)) return Z;
-        if (ch == '=' || ch == '>' || isdelim(ch) || isOperator(ch)) return Z;
+        if (ch == '=' || ch == '>') { Programs(8); return Z; }
+        if (isdelim(ch) || isOperator(ch)) return Z;
         if (isalnum(ch)) return Z;
+        if (isspace(ch)) return Z;
         return ERR;
 
     case GRT:
-        //if (isspace(ch)) return Z;
-        if (ch == '=' || isdelim(ch) || isOperator(ch)) return Z;
+        if (ch == '=') { Programs(8); return Z; }
+        if (isdelim(ch) || isOperator(ch)) return Z;
         if (isalnum(ch)) return Z;
+        if (isspace(ch)) return Z;
         return ERR;
 
     case EQU:
-        //if (isspace(ch)) return Z;
-        if (ch == '=' || isdelim(ch) || isOperator(ch)) return Z;
+        if (ch == '=') { Programs(8); return Z; }
+        if (isdelim(ch) || isOperator(ch)) return Z;
         if (isalnum(ch)) return Z;
+        if (isspace(ch)) return Z;
         return ERR;
 
     default:
@@ -150,38 +202,38 @@ State Lexer::nextState(char ch)
     }
 }
 
-Token Lexer::makeToken(const string& lexeme)
+Token Lexer::makeToken()
 {
-    unordered_map<string, TokenType>::const_iterator it; // Выносим объявление
+    unordered_map<string, TokenType>::const_iterator it; // Р’С‹РЅРѕСЃРёРј РѕР±СЉСЏРІР»РµРЅРёРµ
     static unordered_map<string, TokenType> keywords = {
         {"if", KEYWORD}, {"else", KEYWORD}, {"while", KEYWORD}, {"print", KEYWORD}, {"read", KEYWORD} };
     switch (current_state)
     {
     case IDENT:
-        // Проверка на ключевые слова
-        it = keywords.find(lexeme);
+        // РџСЂРѕРІРµСЂРєР° РЅР° РєР»СЋС‡РµРІС‹Рµ СЃР»РѕРІР°
+        it = keywords.find(name);
         if (it != keywords.end())
-            return Token(KEYWORD, lexeme);
-        return Token(ID, lexeme);
+            return Token(KEYWORD, name);
+        return Token(ID, name);
 
     case INT:
-        return Token(INT_CONST, lexeme);
+        return Token(INT_CONST, num);
     case FLOAT:
-        return Token(FLOAT_CONST, lexeme);
+        return Token(FLOAT_CONST, flo);
     case LES:
-        return Token(OPERATOR, lexeme);
+        return Token(OPERATOR, op);
     case GRT:
-        return Token(OPERATOR, lexeme);
+        return Token(OPERATOR, op);
     case EQU:
-        return Token(OPERATOR, lexeme);
+        return Token(OPERATOR, op);
     case Z:
-        if (lexeme == "(" || lexeme == ")" || lexeme == "{" || lexeme == "}" || lexeme == ";")
-            return Token(DELIMITER, lexeme);
-        if (lexeme == "/" || lexeme == "*" || lexeme == "-" || lexeme == "+")
-            return Token(OPERATOR, lexeme);
-        return Token(OPERATOR, lexeme);
+        if (op == "(" || op == ")" || op == "{" || op == "}" || op == ";" )
+            return Token(DELIMITER, op);
+        if (op == "/" || op == "*" || op == "-" || op == "+")
+            return Token(OPERATOR, op);
+        return Token(OPERATOR, op);
     default:
-        cout << "Error in " << lexeme << " " << current_state;
+        cout << "Error in row and column " << row + 1 << " " << column;
         exit(-1);
     }
 }
@@ -189,53 +241,33 @@ Token Lexer::makeToken(const string& lexeme)
 Token Lexer::getNextToken()
 {
     State nextState = current_state;
-    string lexeme;
     while (currentChar != EOF && currentChar != '\0' || !currentChar)
     {
-        while (isspace(currentChar))
-            advance();
-
         nextState = this->nextState(currentChar);
         if (nextState == ERR)
             current_state = nextState;
-        if (nextState == LES || nextState == GRT || nextState == EQU) {
-            lexeme += currentChar;
-            advance();
-        }
         
+
         if (nextState == Z || nextState == Z_STAR || nextState == ERR) {
-            if (nextState == Z && lexeme == "") {
+            if (current_state == START)
                 current_state = nextState;
-                lexeme += currentChar;
-                advance();
-            }
-            // Токен делаем и для ERR чтобы обработать было проще.
-            // Если достигнуто состояние Z или Z*, создаем токен
-            Token token = makeToken(lexeme);
-            // Если состояние Z_STAR, откатываем позицию на 1 символ
-            if (nextState == Z_STAR) {
-                pos--;                    // Откат позиции
-                currentChar = input[pos]; // Обновляем текущий символ
-            }
-            current_state = START;
+            advance();
+
             
+            Token token = makeToken();
+            d = 1;
+            current_state = START;
             return token;
         }
 
-        if (current_state != Z_STAR && !isspace(currentChar))
-            lexeme += currentChar; 
-
         current_state = nextState;
         advance();
-       
     }
     current_state = nextState;
-
-
-    return makeToken("");
+    return makeToken();
 }
 
-string convert(string filename) // преобразование файла в одну строку
+string convert(string filename) // РїСЂРµРѕР±СЂР°Р·РѕРІР°РЅРёРµ С„Р°Р№Р»Р° РІ РѕРґРЅСѓ СЃС‚СЂРѕРєСѓ
 {
     string text;
     fstream input;
@@ -244,8 +276,10 @@ string convert(string filename) // преобразование файла в одну строку
     if (!input.is_open())
         return "NULL";
 
-    while (getline(input, temp)) // Если getline(input, temp) с ошибкой считался значит закончили (вернул False), input.eof не нужон
+    while (getline(input, temp)) { // Р•СЃР»Рё getline(input, temp) СЃ РѕС€РёР±РєРѕР№ СЃС‡РёС‚Р°Р»СЃСЏ Р·РЅР°С‡РёС‚ Р·Р°РєРѕРЅС‡РёР»Рё (РІРµСЂРЅСѓР» False), input.eof РЅРµ РЅСѓР¶РѕРЅ
         text += temp;
+        text += "\n";
+    }
 
     text += '\0';
     input.close();
@@ -258,19 +292,26 @@ int main()
     string filename = "test.txt";
     string text = convert(filename);
     if (text == "NULL") {
-        // Обрабатываем кейс когда файл не найден.
+        // РћР±СЂР°Р±Р°С‚С‹РІР°РµРј РєРµР№СЃ РєРѕРіРґР° С„Р°Р№Р» РЅРµ РЅР°Р№РґРµРЅ.
         cout << "The file for reading was not found in the directory.";
         return 1;
     }
     Lexer lexer(text);
 
     int sz = text.size();
-    while (lexer.get_pos() != (sz - 1)){
+    while (lexer.get_pos() != (sz - 2)) {
         Token token = lexer.getNextToken();
-        cout << "Token Type: " << token.type << ", Value: " << token.value << "\n";
+        cout << "Token Type: " << token.type << ", Value: ";
+        if ((token.str_).size())
+            cout << token.str_;
+        if (token.int_)
+            cout << token.int_;
+        if (token.flo_)
+            cout << token.flo_;
+        cout << endl;
     }
 
-    if (lexer.get_pos() == (sz - 1))
+    if (lexer.get_pos() == (sz - 2))
         cout << "End of lexical analysis";
     else
         cout << "Error during lexical analysis";
