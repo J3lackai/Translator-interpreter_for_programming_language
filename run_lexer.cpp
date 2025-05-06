@@ -250,9 +250,10 @@ Token Lexer::getNextToken()
 
         if (nextState == Z || nextState == Z_STAR || nextState == ERR) {
             if (current_state == START)
+            {
                 current_state = nextState;
-            advance();
-
+                advance();
+            }
             
             Token token = makeToken();
             d = 1;
