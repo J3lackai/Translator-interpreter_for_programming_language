@@ -20,7 +20,7 @@ struct Token
     string str_;
     int int_;
     float flo_;
-
+    Token() : type(ID), str_(""), int_(0), flo_(0) {}
     Token(TokenType t, const string &v) : type(t), str_(v), int_(0), flo_(0) {}
     Token(TokenType t, const int &v) : type(t), str_(""), int_(v), flo_(0) {}
     Token(TokenType t, const float &v) : type(t), str_(""), int_(0), flo_(v) {}
@@ -64,13 +64,26 @@ private:
 
 public:
     Lexer(const string &text); // Конструктор
-    Token getNextToken();      // Получение следующего токена
-    int get_pos();
+    Lexer();
+    Token getNextToken(); // Получение следующего токена
+    size_t get_pos();
+    size_t get_row();
+    size_t get_column();
 };
 
-int Lexer::get_pos()
+size_t Lexer::get_pos()
 {
     return pos;
+}
+
+size_t Lexer::get_row()
+{
+    return row;
+}
+
+size_t Lexer::get_column()
+{
+    return column;
 }
 
 bool isdelim(char ch)
@@ -91,7 +104,7 @@ Lexer::Lexer(const string &text) : input(text), pos(0), row(0), column(0)
     else
         currentChar = '\0'; // Конец строки
 }
-
+Lexer::Lexer() : input(""), pos(0), row(0), column(0) {};
 void Lexer::Programs(int c)
 {
     switch (c)
@@ -363,7 +376,7 @@ string convert(string filename) // преобразование файла в о
     cout << text << endl;
     return text;
 }
-
+/*
 int main()
 {
     string filename = "C:\\C_Projects\\lexer\\hz\\test.txt";
@@ -397,4 +410,4 @@ int main()
     }
     cout << "Error during lexical analysis";
     return 1;
-}
+}*/
