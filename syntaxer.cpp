@@ -111,7 +111,8 @@ private:
     void Factor();
     void Condition();
     // COMPOP не нужна как отдельная функция
-    void IfElse();
+    void If();
+    void Else();
     void Loop();
     void InOutput(); // Объединяет Input и Output
     void Input();
@@ -123,7 +124,7 @@ private:
 
 public:
     Parser(Lexer &lexer); // Конструктор
-    void parse();         // Запускает процесс парсинга
+    void parse();
     bool hasSyntaxError() const { return hasError; }
 
     // Для отладки: печать сгенерированной ОПС
@@ -140,9 +141,38 @@ Parser::Parser(Lexer &lexer)
     currentToken = lexer.getNextToken();
 }
 
+void Parser::parse()
+{
+    // Проверяем, нет ли ошибок от лексера на первом токене
+    if (hasError)
+    {
+        std::cerr << "Parsing aborted due to initial lexical error." << std::endl;
+        return; // Прерываем парсинг, если лексер уже выдал ошибку
+    }
+
+    // Начинаем разбор с начального символа грамматики (START)
+    Start();
+
+    if (!hasError)
+    {
+        std::cout << "Parsing successful: Syntax is correct." << std::endl;
+        // !!! ЗДЕСЬ должен быть вызов функции для интерпретации сгенерированного OPS !!!
+        // interpret_ops(ops_code); // Пример вызова
+    }
+    else
+    {
+        std::cerr << "Parsing failed: Syntax errors found." << std::endl;
+    }
+}
+
 // Получает следующий токен
 void Parser::consume()
 {
+    if (size(this->lexer.input) - 2 != this->lexer.get_pos())
+    {
+        currentToken.type = TokenType::TOKEN_EOF;
+        return;
+    }
     if (hasError)
         return;
     currentToken = lexer.getNextToken();
@@ -176,6 +206,8 @@ void Parser::expect(const std::string &expectedValue, const std::string &errorMe
     {
         consume();
     }
+    else if (currentToken.type == TokenType::TOKEN_EOF)
+        return;
     else
     {
         error(errorMessage);
@@ -250,6 +282,8 @@ void Parser::StatementList()
         Statement();     // Разбираем один оператор (включая SC)
         StatementList(); // Рекурсивно разбираем остаток списка
     }
+    else if (currentToken.type == TokenType::TOKEN_EOF)
+        return;
     // Иначе (ε случай) - ничего не делаем, просто выходим.
     // Follow set of STATEMENT_LIST: { EOF, R_BODY, ELSE_STATEMENT } - эти токены не могут начать STATEMENT
 }
@@ -269,7 +303,7 @@ void Parser::Statement()
     {
         if (currentToken.str_ == "if")
         {
-            IfElse();
+            If();
             expect(";", "Expected ';' after if/ifelse statement."); // Грамматика требует SC
         }
         else if (currentToken.str_ == "while" || currentToken.str_ == "for")
@@ -294,6 +328,8 @@ void Parser::Statement()
         expect(";", "Internal Parser Error: Expected ';'"); // Потребляем SC
         // Семантически ничего не делаем для пустого оператора - OPS не генерируется
     }
+    else if (currentToken.type == TokenType::TOKEN_EOF)
+        return;
     else
     {
         error("Syntax Error: Expected start of a statement (ID, keyword, or ';'), but got token type " + std::to_string(static_cast<int>(currentToken.type)));
@@ -347,6 +383,8 @@ void Parser::U()
         // Semantic action (after operands and tail are parsed)
         AddToOPS(OPSElement(getOPSCode(op_val))); // Add the operator to OPS
     }
+    else if (currentToken.type == TokenType::TOKEN_EOF)
+        return;
     // Epsilon case (nothing to do) is implicit when the token is not '+' or '-'
     // Follow set of U: {;, ), }, <, <=, >, >=, ==, <>, (AND, OR, NOT?), EOF}
 }
@@ -378,6 +416,8 @@ void Parser::V()
         // Semantic action (after operands and tail are parsed)
         AddToOPS(OPSElement(getOPSCode(op_val))); // Add the operator to OPS
     }
+    else if (currentToken.type == TokenType::TOKEN_EOF)
+        return;
     // Epsilon case is implicit
     // Follow set of V: {+, -, ;, ), }, <, <=, >, >=, ==, <>, (AND, OR, NOT?), EOF}
 }
@@ -413,6 +453,8 @@ void Parser::Factor()
         expect(")", "Expected ')' after expression in factor.");
         // Semantic action: Parentheses only control parsing order, no OPS needed for them directly
     }
+    else if (currentToken.type == TokenType::TOKEN_EOF)
+        return;
     else
     {
         error("Syntax Error: Expected identifier, number, or '(' in factor.");
@@ -449,6 +491,8 @@ void Parser::Condition()
             consume();
         }
     }
+    else if (currentToken.type == TokenType::TOKEN_EOF)
+        return;
     else
     {
         error("Syntax Error: Expected comparison operator after expression in condition.");
@@ -458,7 +502,7 @@ void Parser::Condition()
 
 // IFELSE -> IF_STATEMENT L_BRACKET CONDITION R_BRACKET L_BODY STATEMENT_LIST R_BODY ELSE_STATEMENT L_BODY STATEMENT_LIST R_BODY
 //        | IF_STATEMENT L_BRACKET CONDITION R_BRACKET L_BODY STATEMENT_LIST R_BODY
-void Parser::IfElse()
+void Parser::If()
 {
     if (hasError)
         return;
@@ -477,6 +521,18 @@ void Parser::IfElse()
     StatementList(); // Generates OPS for the 'then' block
     expect("}", "Expected '}' after if body.");
 
+    if (currentToken.type == TokenType::TOKEN_EOF)
+        return;
+    else
+    {
+        // --- Semantic actions for IF without ELSE ---
+        // Place the label for the end of the if block (which was labelElse)
+        AddToOPS(OPSElement(OPSCode::OP_LABEL, labelElse + ":")); // Add label definition to OPS
+    }
+}
+void Parser::Else()
+{
+
     // Check for ELSE_STATEMENT
     if (currentToken.type == TokenType::KEYWORD && currentToken.str_ == "else")
     {
@@ -487,7 +543,7 @@ void Parser::IfElse()
         AddToOPS(OPSElement(OPSCode::OP_JMP));             // Add JMP command
 
         // Place the label for the start of the else block
-        AddToOPS(OPSElement(OPSCode::OP_LABEL, labelElse + ":")); // Add label definition to OPS
+        AddToOPS(OPSElement(OPSCode::OP_LABEL, ":")); // Add label definition to OPS
 
         expect("else", "Internal Parser Error: Expected 'else'."); // Keyword else
         expect("{", "Expected '{' for else body.");
@@ -497,11 +553,13 @@ void Parser::IfElse()
         // Place the label for the very end of if-else
         AddToOPS(OPSElement(OPSCode::OP_LABEL, labelEnd + ":")); // Add label definition to OPS
     }
+    else if (currentToken.type == TokenType::TOKEN_EOF)
+        return;
     else
     {
         // --- Semantic actions for IF without ELSE ---
         // Place the label for the end of the if block (which was labelElse)
-        AddToOPS(OPSElement(OPSCode::OP_LABEL, labelElse + ":")); // Add label definition to OPS
+        AddToOPS(OPSElement(OPSCode::OP_LABEL, ":")); // Add label definition to OPS
     }
 }
 
@@ -653,6 +711,8 @@ void Parser::Loop()
         // Place the label for the end of the loop
         AddToOPS(OPSElement(OPSCode::OP_LABEL, labelEnd + ":")); // Add label definition to OPS
     }
+    else if (currentToken.type == TokenType::TOKEN_EOF)
+        return;
     else
     {
         error("Syntax Error: Expected 'while' or 'for', but got '" + currentToken.str_ + "'.");
@@ -674,6 +734,8 @@ void Parser::InOutput()
     {
         Output(); // Parse Output (generates OPS inside)
     }
+    else if (currentToken.type == TokenType::TOKEN_EOF)
+        return;
     else
     {
         error("Internal Parser Error: Expected 'read' or 'print'.");
@@ -885,22 +947,9 @@ std::string read_file(const std::string &filename)
 // --- Главная функция программы ---
 int main()
 {
-    std::string filename = "test.txt"; // Укажите правильный путь к файлу
-    std::string text = read_file(filename);
+    std::string filename = "C:\\C_Projects\\lexer\\test.txt"; // Укажите правильный путь к файлу
 
-    if (text.empty() && !std::cerr.fail()) // Проверяем, пустая ли строка, и не было ли ошибки при чтении
-    {
-        std::cout << "The input file is empty." << std::endl;
-        return 1;
-    }
-    if (std::cerr.fail())
-    { // Была ошибка при чтении файла
-        return 1;
-    }
-
-    // Добавляем символ конца файла в конец текста
-    // Лексер должен обрабатывать его как маркер окончания ввода
-    text += '\0'; // Используем null-терминатор как маркер EOF
+    std::string text = convert(filename);
 
     // Создаем лексер с текстом из файла
     Lexer lexer(text);
@@ -921,11 +970,6 @@ int main()
 
     // Возвращаем статус в зависимости от результата парсинга
     if (parser.hasSyntaxError())
-    {
         return 1; // Возвращаем ненулевой код для ошибки синтаксиса или лексической ошибки
-    }
-    else
-    {
-        return 0; // Возвращаем ноль для успешного завершения
-    }
+    return 0;
 }

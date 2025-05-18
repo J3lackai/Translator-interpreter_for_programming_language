@@ -11,7 +11,8 @@ enum TokenType
     FLOAT_CONST, // Вещественная константа
     OPERATOR,    // Оператор
     DELIMITER,   // Разделитель
-    KEYWORD      // Ключевое слово
+    KEYWORD,     // Ключевое слово
+    TOKEN_EOF
 };
 
 struct Token
@@ -44,7 +45,7 @@ enum State
 class Lexer
 {
 private:
-    string input;        // Входной текст
+    // Входной текст
     size_t pos;          // Текущая позиция в тексте
     State current_state; // Текущее состояние, выделил потому чтобы кучу раз во все функции не передавать аргументом.
     char currentChar;    // Текущий символ
@@ -63,6 +64,7 @@ private:
     void Programs(int);
 
 public:
+    string input;
     Lexer(const string &text); // Конструктор
     Lexer();
     Token getNextToken(); // Получение следующего токена
@@ -373,7 +375,6 @@ string convert(string filename) // преобразование файла в о
 
     text += '\0';
     input.close();
-    cout << text << endl;
     return text;
 }
 /*
@@ -389,7 +390,7 @@ int main()
     }
     Lexer lexer(text);
 
-    int sz = text.size();
+    size_t sz = text.size();
     while (lexer.get_pos() != (sz - 2))
     {
         Token token = lexer.getNextToken();
