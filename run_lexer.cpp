@@ -71,8 +71,12 @@ public:
     size_t get_pos();
     size_t get_row();
     size_t get_column();
+    string get_input();
 };
-
+string Lexer::get_input()
+{
+    return input;
+}
 size_t Lexer::get_pos()
 {
     return pos;

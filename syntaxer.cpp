@@ -88,9 +88,9 @@ std::string NewLabel()
 class Parser
 {
 private:
-    Lexer lexer;        // Ссылка на лексер
-    Token currentToken; // Текущий токен от лексера
+    Lexer &lexer;       // Ссылка на лексер
     bool hasError;      // Флаг ошибки парсинга
+    Token currentToken; // Текущий токен от лексера
 
     // Вспомогательные функции
     void expect(TokenType expectedType, const std::string &errorMessage);
@@ -132,13 +132,7 @@ public:
 
 // Конструктор парсера
 
-Parser::Parser(Lexer &lexer)
-{
-    // Получаем первый токен
-    lexer = lexer;
-    hasError = false;
-    currentToken = lexer.getNextToken();
-}
+Parser::Parser(Lexer &lexer) : lexer(lexer), hasError(false), currentToken(lexer.getNextToken()) {}
 
 void Parser::parse()
 {
@@ -148,7 +142,6 @@ void Parser::parse()
         std::cerr << "Parsing aborted due to initial lexical error." << std::endl;
         return; // Прерываем парсинг, если лексер уже выдал ошибку
     }
-
     // Начинаем разбор с начального символа грамматики (START)
     Start();
 
@@ -255,7 +248,6 @@ void Parser::Start()
     if (hasError)
         return;
     StatementList();
-    expect(string("\0"), "Error: Expected EOF");
 }
 
 // STATEMENT_LIST -> STATEMENT STATEMENT_LIST | ε
