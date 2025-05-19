@@ -46,6 +46,7 @@ class Lexer
 {
 private:
     // Входной текст
+    string input;
     size_t pos;          // Текущая позиция в тексте
     State current_state; // Текущее состояние, выделил потому чтобы кучу раз во все функции не передавать аргументом.
     char currentChar;    // Текущий символ
@@ -64,7 +65,6 @@ private:
     void Programs(int);
 
 public:
-    string input;
     Lexer(const string &text); // Конструктор
     Lexer();
     Token getNextToken(); // Получение следующего токена
@@ -355,7 +355,9 @@ Token Lexer::getNextToken()
         advance();
     }
     current_state = nextState;
-    return makeToken();
+    Token t = Token();
+    t.type = TOKEN_EOF;
+    return t;
 }
 
 string convert(string filename) // преобразование файла в одну строку

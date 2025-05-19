@@ -15,7 +15,7 @@ enum class OPSCode
     // Операнды (специальные маркеры, чтобы знать, что находится в value)
     OP_INT_CONST,   // value is int_
     OP_FLOAT_CONST, // value is flo_
-    OP_VARIABLE,    // value is str_
+    OP_IDENT,       // value is str_
 
     // Арифметические
     OP_ADD,
@@ -56,7 +56,6 @@ struct OPSElement
     // Значение элемента. Используем variant для гибкости.
     std::variant<int, float, std::string, size_t> value; // int/float для констант, string для имен переменных, size_t для адресов меток (индексов в векторе)
 
-    // Конструкторы для удобства
     OPSElement(OPSCode c, int v) : code(c), value(v) {}
     OPSElement(OPSCode c, float v) : code(c), value(v) {}
     OPSElement(OPSCode c, const std::string &v) : code(c), value(v) {}
@@ -168,11 +167,6 @@ void Parser::parse()
 // Получает следующий токен
 void Parser::consume()
 {
-    if (size(this->lexer.input) - 2 != this->lexer.get_pos())
-    {
-        currentToken.type = TokenType::TOKEN_EOF;
-        return;
-    }
     if (hasError)
         return;
     currentToken = lexer.getNextToken();
@@ -186,11 +180,10 @@ void Parser::expect(TokenType expectedType, const std::string &errorMessage)
     if (currentToken.type == expectedType)
     {
         consume();
+        return;
     }
-    else
-    {
-        error(errorMessage);
-    }
+    error(errorMessage);
+    hasError = true;
 }
 
 // Проверяет значение (для операторов/разделителей/ключевых слов) текущего токена и потребляет его
@@ -205,13 +198,10 @@ void Parser::expect(const std::string &expectedValue, const std::string &errorMe
         currentToken.str_ == expectedValue)
     {
         consume();
-    }
-    else if (currentToken.type == TokenType::TOKEN_EOF)
         return;
-    else
-    {
-        error(errorMessage);
     }
+    error(errorMessage);
+    hasError = true;
 }
 
 // Выводит сообщение об ошибке парсинга
@@ -265,6 +255,7 @@ void Parser::Start()
     if (hasError)
         return;
     StatementList();
+    expect(string("\0"), "Error: Expected EOF");
 }
 
 // STATEMENT_LIST -> STATEMENT STATEMENT_LIST | ε
@@ -282,8 +273,6 @@ void Parser::StatementList()
         Statement();     // Разбираем один оператор (включая SC)
         StatementList(); // Рекурсивно разбираем остаток списка
     }
-    else if (currentToken.type == TokenType::TOKEN_EOF)
-        return;
     // Иначе (ε случай) - ничего не делаем, просто выходим.
     // Follow set of STATEMENT_LIST: { EOF, R_BODY, ELSE_STATEMENT } - эти токены не могут начать STATEMENT
 }
@@ -328,8 +317,6 @@ void Parser::Statement()
         expect(";", "Internal Parser Error: Expected ';'"); // Потребляем SC
         // Семантически ничего не делаем для пустого оператора - OPS не генерируется
     }
-    else if (currentToken.type == TokenType::TOKEN_EOF)
-        return;
     else
     {
         error("Syntax Error: Expected start of a statement (ID, keyword, or ';'), but got token type " + std::to_string(static_cast<int>(currentToken.type)));
@@ -342,18 +329,21 @@ void Parser::Assignment()
 {
     if (hasError)
         return;
-    expect(TokenType::ID, "Expected identifier in assignment.");
-    // Семантическое действие (для ID): AddToOPS(OPSElement(OPSCode::OP_VARIABLE, currentToken.str_));
-    // NOTE: AddToOPS needs the value *after* consume. Capture it before.
-    std::string var_name = currentToken.str_; // Capture name before consume
 
-    expect("=", "Expected '=' in assignment."); // ASSIGN is '='
+    std::string var_name = currentToken.str_;
+    expect(TokenType::ID, "Expected identifier in assignment.");
+    if (hasError)
+        return;
+
+    expect("=", "Expected '=' in assignment.");
+    if (hasError)
+        return;
 
     Expression(); // Generates OPS for the expression
 
     // Semantic actions (after expression OPS is generated)
-    AddToOPS(OPSElement(OPSCode::OP_VARIABLE, var_name)); // Variable (where to assign)
-    AddToOPS(OPSElement(OPSCode::OP_ASSIGN));             // Assignment operator
+    AddToOPS(OPSElement(OPSCode::OP_IDENT, var_name)); // Variable (where to assign)
+    AddToOPS(OPSElement(OPSCode::OP_ASSIGN));          // Assignment operator
 }
 
 // EXPRESSION -> TERM U
@@ -375,6 +365,8 @@ void Parser::U()
     {
         std::string op_val = currentToken.str_;                        // Capture operator symbol
         expect(op_val, "Internal Parser Error: Expected '+' or '-'."); // Consume the operator
+        if (hasError)
+            return;
 
         Term(); // Generates OPS for the next Term
 
@@ -383,8 +375,6 @@ void Parser::U()
         // Semantic action (after operands and tail are parsed)
         AddToOPS(OPSElement(getOPSCode(op_val))); // Add the operator to OPS
     }
-    else if (currentToken.type == TokenType::TOKEN_EOF)
-        return;
     // Epsilon case (nothing to do) is implicit when the token is not '+' or '-'
     // Follow set of U: {;, ), }, <, <=, >, >=, ==, <>, (AND, OR, NOT?), EOF}
 }
@@ -408,6 +398,8 @@ void Parser::V()
     {
         std::string op_val = currentToken.str_;                        // Capture operator symbol
         expect(op_val, "Internal Parser Error: Expected '*' or '/'."); // Consume the operator
+        if (hasError)
+            return;
 
         Factor(); // Generates OPS for the next Factor
 
@@ -416,8 +408,6 @@ void Parser::V()
         // Semantic action (after operands and tail are parsed)
         AddToOPS(OPSElement(getOPSCode(op_val))); // Add the operator to OPS
     }
-    else if (currentToken.type == TokenType::TOKEN_EOF)
-        return;
     // Epsilon case is implicit
     // Follow set of V: {+, -, ;, ), }, <, <=, >, >=, ==, <>, (AND, OR, NOT?), EOF}
 }
@@ -431,30 +421,38 @@ void Parser::Factor()
     if (currentToken.type == TokenType::ID)
     {
         // Semantic action: Add the variable to OPS (to push its value onto the stack)
-        AddToOPS(OPSElement(OPSCode::OP_VARIABLE, currentToken.str_));
+        AddToOPS(OPSElement(OPSCode::OP_IDENT, currentToken.str_));
         expect(TokenType::ID, "Expected identifier in factor.");
+        if (hasError)
+            return;
     }
     else if (currentToken.type == TokenType::INT_CONST)
     {
         // Semantic action: Add the integer constant to OPS
         AddToOPS(OPSElement(OPSCode::OP_INT_CONST, currentToken.int_));
         expect(TokenType::INT_CONST, "Expected integer constant in factor.");
+        if (hasError)
+            return;
     }
     else if (currentToken.type == TokenType::FLOAT_CONST)
     {
         // Semantic action: Add the float constant to OPS
         AddToOPS(OPSElement(OPSCode::OP_FLOAT_CONST, currentToken.flo_));
         expect(TokenType::FLOAT_CONST, "Expected float constant in factor.");
+        if (hasError)
+            return;
     }
     else if (currentToken.type == TokenType::DELIMITER && currentToken.str_ == "(")
     {
         expect("(", "Expected '(' in factor.");
+        if (hasError)
+            return;
         Expression(); // Generates OPS for the expression inside parentheses
         expect(")", "Expected ')' after expression in factor.");
+        if (hasError)
+            return;
         // Semantic action: Parentheses only control parsing order, no OPS needed for them directly
     }
-    else if (currentToken.type == TokenType::TOKEN_EOF)
-        return;
     else
     {
         error("Syntax Error: Expected identifier, number, or '(' in factor.");
@@ -479,7 +477,8 @@ void Parser::Condition()
         if (op_val == "<" || op_val == "<=" || op_val == ">" || op_val == ">=" || op_val == "==" || op_val == "<>")
         {
             expect(op_val, "Internal Parser Error: Expected comparison operator."); // Consume the operator
-
+            if (hasError)
+                return;
             Expression(); // Generates OPS for the right side of the comparison
 
             // Semantic action (after both expressions are parsed)
@@ -491,8 +490,6 @@ void Parser::Condition()
             consume();
         }
     }
-    else if (currentToken.type == TokenType::TOKEN_EOF)
-        return;
     else
     {
         error("Syntax Error: Expected comparison operator after expression in condition.");
@@ -507,9 +504,15 @@ void Parser::If()
     if (hasError)
         return;
     expect("if", "Internal Parser Error: Expected 'if'."); // Keyword if
+    if (hasError)
+        return;
     expect("(", "Expected '(' after 'if'.");
+    if (hasError)
+        return;
     Condition(); // Generates OPS for the condition
     expect(")", "Expected ')' after condition.");
+    if (hasError)
+        return;
 
     // --- Semantic actions for the IF part ---
     // After condition, generate JF jump based on condition result
@@ -518,10 +521,11 @@ void Parser::If()
     AddToOPS(OPSElement(OPSCode::OP_JF));               // Add JF command
 
     expect("{", "Expected '{' for if body.");
+    if (hasError)
+        return;
     StatementList(); // Generates OPS for the 'then' block
     expect("}", "Expected '}' after if body.");
-
-    if (currentToken.type == TokenType::TOKEN_EOF)
+    if (hasError)
         return;
     else
     {
@@ -546,15 +550,19 @@ void Parser::Else()
         AddToOPS(OPSElement(OPSCode::OP_LABEL, ":")); // Add label definition to OPS
 
         expect("else", "Internal Parser Error: Expected 'else'."); // Keyword else
+        if (hasError)
+            return;
         expect("{", "Expected '{' for else body.");
+        if (hasError)
+            return;
         StatementList(); // Generates OPS for the 'else' block
         expect("}", "Expected '}' after else body.");
+        if (hasError)
+            return;
 
         // Place the label for the very end of if-else
         AddToOPS(OPSElement(OPSCode::OP_LABEL, labelEnd + ":")); // Add label definition to OPS
     }
-    else if (currentToken.type == TokenType::TOKEN_EOF)
-        return;
     else
     {
         // --- Semantic actions for IF without ELSE ---
@@ -579,17 +587,27 @@ void Parser::Loop()
         AddToOPS(OPSElement(OPSCode::OP_LABEL, labelStart + ":")); // Add label definition to OPS
 
         expect("while", "Internal Parser Error: Expected 'while'."); // Keyword while
+        if (hasError)
+            return;
         expect("(", "Expected '(' after 'while'.");
+        if (hasError)
+            return;
         Condition(); // Generates OPS for the loop condition
         expect(")", "Expected ')' after condition.");
+        if (hasError)
+            return;
 
         // After condition, generate JF jump to exit the loop
         AddToOPS(OPSElement(OPSCode::OP_LABEL, labelEnd)); // Add label reference to OPS
         AddToOPS(OPSElement(OPSCode::OP_JF));              // Add JF command
 
         expect("{", "Expected '{' for while body.");
+        if (hasError)
+            return;
         StatementList(); // Generates OPS for the loop body
         expect("}", "Expected '}' after while body.");
+        if (hasError)
+            return;
 
         // After loop body, generate JMP to return to condition check
         AddToOPS(OPSElement(OPSCode::OP_LABEL, labelStart)); // Add label reference to OPS
@@ -606,7 +624,11 @@ void Parser::Loop()
         std::string labelIncr = NewLabel(); // Label for the increment part
 
         expect("for", "Internal Parser Error: Expected 'for'."); // Keyword for
+        if (hasError)
+            return;
         expect("(", "Expected '(' after 'for'.");
+        if (hasError)
+            return;
 
         Statement(); // init; (Generates OPS for initialization) - Includes SC by grammar
 
@@ -685,6 +707,8 @@ void Parser::Loop()
 
         Statement();                                                   // init_stmt (Generates OPS for init)
         expect(";", "Expected ';' after init statement in for loop."); // Consumes ;
+        if (hasError)
+            return;
 
         // Place the label for the start of condition check
         AddToOPS(OPSElement(OPSCode::OP_LABEL, labelCond + ":")); // Add label definition to OPS
@@ -696,13 +720,21 @@ void Parser::Loop()
         AddToOPS(OPSElement(OPSCode::OP_JF));              // Add JF command
 
         expect(";", "Expected ';' after condition in for loop."); // Consumes ;
+        if (hasError)
+            return;
 
         Statement(); // incr_stmt (Generates OPS for increment)
 
         expect(")", "Expected ')' after increment statement in for loop."); // Consumes )
+        if (hasError)
+            return;
         expect("{", "Expected '{' for for body.");
+        if (hasError)
+            return;
         StatementList(); // Generates OPS for the loop body
         expect("}", "Expected '}' after for body.");
+        if (hasError)
+            return;
 
         // After loop body and incr, generate JMP to return to condition check
         AddToOPS(OPSElement(OPSCode::OP_LABEL, labelCond)); // Add label reference to OPS
@@ -711,8 +743,6 @@ void Parser::Loop()
         // Place the label for the end of the loop
         AddToOPS(OPSElement(OPSCode::OP_LABEL, labelEnd + ":")); // Add label definition to OPS
     }
-    else if (currentToken.type == TokenType::TOKEN_EOF)
-        return;
     else
     {
         error("Syntax Error: Expected 'while' or 'for', but got '" + currentToken.str_ + "'.");
@@ -734,8 +764,6 @@ void Parser::InOutput()
     {
         Output(); // Parse Output (generates OPS inside)
     }
-    else if (currentToken.type == TokenType::TOKEN_EOF)
-        return;
     else
     {
         error("Internal Parser Error: Expected 'read' or 'print'.");
@@ -749,14 +777,21 @@ void Parser::Input()
     if (hasError)
         return;
     expect("read", "Internal Parser Error: Expected 'read'."); // Keyword read
+    if (hasError)
+        return;
     expect("(", "Expected '(' after 'read'.");
+    if (hasError)
+        return;
 
-    // Semantic action: Add variable name and READ operator
+    // Semantic action: Add ident name and READ operator
     expect(TokenType::ID, "Expected identifier after 'read('.");
-    AddToOPS(OPSElement(OPSCode::OP_VARIABLE, currentToken.str_)); // Variable (where to read)
+    if (hasError)
+        return;
+    AddToOPS(OPSElement(OPSCode::OP_IDENT, currentToken.str_));
 
     expect(")", "Expected ')' after identifier in 'read'.");
-    // Semantic action: Add READ operator (after variable name)
+    if (hasError)
+        return;
     AddToOPS(OPSElement(OPSCode::OP_READ));
 }
 
@@ -766,11 +801,17 @@ void Parser::Output()
     if (hasError)
         return;
     expect("print", "Internal Parser Error: Expected 'print'."); // Keyword print
+    if (hasError)
+        return;
     expect("(", "Expected '(' after 'print'.");
+    if (hasError)
+        return;
 
     Expression(); // Generates OPS for the expression to print
 
     expect(")", "Expected ')' after expression in 'print'.");
+    if (hasError)
+        return;
     // Semantic action: Add PRINT operator (after expression)
     AddToOPS(OPSElement(OPSCode::OP_PRINT));
 }
@@ -797,7 +838,7 @@ void Parser::printOPS() const
     std::unordered_map<OPSCode, std::string> opsCodeToString = {
         {OPSCode::OP_INT_CONST, "INT"},
         {OPSCode::OP_FLOAT_CONST, "FLOAT"},
-        {OPSCode::OP_VARIABLE, "VAR"},
+        {OPSCode::OP_IDENT, "ID"},
         {OPSCode::OP_ADD, "+"},
         {OPSCode::OP_SUB, "-"},
         {OPSCode::OP_MUL, "*"},
@@ -845,7 +886,7 @@ void Parser::printOPS() const
             case OPSCode::OP_FLOAT_CONST:
                 std::cout << " " << std::fixed << std::setprecision(2) << std::get<float>(element.value); // Adjust precision as needed
                 break;
-            case OPSCode::OP_VARIABLE:
+            case OPSCode::OP_IDENT:
                 std::cout << " " << std::get<std::string>(element.value);
                 break;
             case OPSCode::OP_JF:
@@ -950,7 +991,7 @@ int main()
     std::string filename = "C:\\C_Projects\\lexer\\test.txt"; // Укажите правильный путь к файлу
 
     std::string text = convert(filename);
-
+    cout << text;
     // Создаем лексер с текстом из файла
     Lexer lexer(text);
 
