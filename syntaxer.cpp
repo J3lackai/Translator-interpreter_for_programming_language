@@ -320,9 +320,9 @@ void Parser::Assignment()
 {
     if (hasError)
         return;
-
     std::string var_name = currentToken.str_;
     expect(TokenType::ID, "Expected identifier in assignment.");
+
     if (hasError)
         return;
 
@@ -636,11 +636,12 @@ void Parser::Input()
     if (hasError)
         return;
 
+    Token value = currentToken;
     // Semantic action: Add ident name and READ operator
     expect(TokenType::ID, "Expected identifier after 'read('.");
     if (hasError)
         return;
-    AddToOPS(OPSElement(OPSCode::OP_IDENT, currentToken.str_));
+    AddToOPS(OPSElement(OPSCode::OP_IDENT, value.str_));
 
     expect(")", "Expected ')' after identifier in 'read'.");
     if (hasError)
@@ -671,10 +672,6 @@ void Parser::Output()
 
 // EMPTY_STATEMENT -> ε
 // Handled implicitly in StatementList and Statement functions.
-// When StatementList is called and the current token is in its Follow set,
-// the function returns, effectively parsing ε.
-// When Statement is called and the current token is ';', the Statement function
-// explicitly handles the 'SC' case.
 
 // --- Печать сгенерированной ОПС (для отладки) ---
 
