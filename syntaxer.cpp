@@ -110,8 +110,7 @@ private:
     void Factor();
     void Condition();
     // COMPOP не нужна как отдельная функция
-    void If();
-    void Else();
+    void Ifelse();
     void Loop();
     void InOutput(); // Объединяет Input и Output
     void Input();
@@ -284,10 +283,10 @@ void Parser::Statement()
     {
         if (currentToken.str_ == "if")
         {
-            If();
+            Ifelse();
             expect(";", "Expected ';' after if/ifelse statement."); // Грамматика требует SC
         }
-        else if (currentToken.str_ == "while" || currentToken.str_ == "for")
+        else if (currentToken.str_ == "while")
         {
             Loop();
             expect(";", "Expected ';' after loop statement."); // Грамматика требует SC
@@ -491,7 +490,7 @@ void Parser::Condition()
 
 // IFELSE -> IF_STATEMENT L_BRACKET CONDITION R_BRACKET L_BODY STATEMENT_LIST R_BODY ELSE_STATEMENT L_BODY STATEMENT_LIST R_BODY
 //        | IF_STATEMENT L_BRACKET CONDITION R_BRACKET L_BODY STATEMENT_LIST R_BODY
-void Parser::If()
+void Parser::Ifelse()
 {
     if (hasError)
         return;
@@ -519,17 +518,6 @@ void Parser::If()
     expect("}", "Expected '}' after if body.");
     if (hasError)
         return;
-    else
-    {
-        // --- Semantic actions for IF without ELSE ---
-        // Place the label for the end of the if block (which was labelElse)
-        AddToOPS(OPSElement(OPSCode::OP_LABEL, labelElse + ":")); // Add label definition to OPS
-    }
-}
-void Parser::Else()
-{
-
-    // Check for ELSE_STATEMENT
     if (currentToken.type == TokenType::KEYWORD && currentToken.str_ == "else")
     {
         // --- Semantic actions for the ELSE part ---
@@ -559,10 +547,10 @@ void Parser::Else()
     {
         // --- Semantic actions for IF without ELSE ---
         // Place the label for the end of the if block (which was labelElse)
-        AddToOPS(OPSElement(OPSCode::OP_LABEL, ":")); // Add label definition to OPS
+        AddToOPS(OPSElement(OPSCode::OP_LABEL, labelElse + ":")); // Add label definition to OPS
     }
+    // Check for ELSE_STATEMENT
 }
-
 // LOOP -> WHILE_STATEMENT L_BRACKET CONDITION R_BRACKET L_BODY STATEMENT_LIST R_BODY
 //      | FOR_STATEMENT L_BRACKET STATEMENT CONDITION SC STATEMENT R_BRACKET L_BODY STATEMENT_LIST R_BODY
 void Parser::Loop()
@@ -604,133 +592,6 @@ void Parser::Loop()
         // After loop body, generate JMP to return to condition check
         AddToOPS(OPSElement(OPSCode::OP_LABEL, labelStart)); // Add label reference to OPS
         AddToOPS(OPSElement(OPSCode::OP_JMP));               // Add JMP command
-
-        // Place the label for the end of the loop
-        AddToOPS(OPSElement(OPSCode::OP_LABEL, labelEnd + ":")); // Add label definition to OPS
-    }
-    else if (currentToken.type == TokenType::KEYWORD && currentToken.str_ == "for")
-    {
-        // --- Semantic actions for FOR ---
-        std::string labelCond = NewLabel(); // Label for the start of condition check
-        std::string labelEnd = NewLabel();  // Label for the end of the loop
-        std::string labelIncr = NewLabel(); // Label for the increment part
-
-        expect("for", "Internal Parser Error: Expected 'for'."); // Keyword for
-        if (hasError)
-            return;
-        expect("(", "Expected '(' after 'for'.");
-        if (hasError)
-            return;
-
-        Statement(); // init; (Generates OPS for initialization) - Includes SC by grammar
-
-        // Place the label for the start of condition check
-        AddToOPS(OPSElement(OPSCode::OP_LABEL, labelCond + ":")); // Add label definition to OPS
-
-        Condition(); // cond (Generates OPS for the loop condition)
-
-        // After condition, generate JF jump to exit the loop
-        AddToOPS(OPSElement(OPSCode::OP_LABEL, labelEnd)); // Add label reference to OPS
-        AddToOPS(OPSElement(OPSCode::OP_JF));              // Add JF command
-
-        // After the conditional jump, add a jump to the increment section.
-        // This seems unusual for standard C-like for semantics, but follows your grammar.
-        // In standard C-like for, increment is executed *after* the body.
-        // Let's adjust to standard FOR logic for OPS generation.
-
-        // Standard FOR OPS structure:
-        // OPS_init
-        // Label_Cond:
-        // OPS_cond
-        // Label_End JF
-        // OPS_body
-        // Label_Incr: // Or just before JMP
-        // OPS_incr
-        // Label_Cond JMP
-        // Label_End:
-
-        // Let's re-implement FOR OPS generation based on standard FOR semantics,
-        // even if your grammar rule's sequence (init; cond; incr) is parsed as
-        // Statement() Condition() SC Statement().
-
-        // Standard FOR OPS generation:
-        // 1. Parse init (Statement). Generates OPS for init.
-        // 2. Add Label_Cond.
-        // 3. Parse cond (Condition). Generates OPS for cond.
-        // 4. Add Label_End, JF.
-        // 5. Add Label_Incr (where increment happens).
-        // 6. Add JMP to Label_Incr (This jump is before the body and goes to the increment code)
-        // 7. Parse body (StatementList). Generates OPS for body.
-        // 8. Place Label_Incr (the jump target for the increment).
-        // 9. Parse incr (Statement). Generates OPS for incr.
-        // 10. Add Label_Cond, JMP.
-        // 11. Place Label_End.
-
-        // Re-doing FOR OPS based on Standard Semantics (requires re-ordering parsed elements):
-        // Original grammar parsing order: (init) (cond) SC (incr)
-        // This makes standard FOR OPS generation tricky if we only parse sequentially.
-        // Let's assume the parser *collects* the code for init, cond, incr, body and then *arranges* it for OPS.
-        // This is difficult for simple recursive descent without building an AST.
-
-        // Let's stick to generating OPS *sequentially* as parsed, mapping your grammar to a similar structure.
-        // Grammar: for ( init ; cond ; incr ) { body }
-        // Parsed:   for ( [init] ; [cond] ; [incr] ) { [body] }
-        // OPS:     [OPS_init] Label_Cond: [OPS_cond] Label_End JF [OPS_body] [OPS_incr] Label_Cond JMP Label_End:
-
-        // Let's try generating sequentially based on the parsed order:
-        // 1. Parse init (Statement). Generates OPS for init.
-        // 2. Add Label_Cond.
-        // 3. Parse cond (Condition). Generates OPS for cond.
-        // 4. Add Label_End, JF. (Jump to end if cond is false)
-        // 5. Parse body (StatementList). Generates OPS for body.
-        // 6. Parse incr (Statement). Generates OPS for incr.
-        // 7. Add Label_Cond, JMP. (Jump back to check condition)
-        // 8. Add Label_End.
-
-        // Let's adjust the parsing sequence to fit Standard FOR OPS better.
-        // Standard for parsing: for ( Assignment SC Condition SC Assignment R_BRACKET { StatementList } )
-        // Your grammar: for ( STATEMENT CONDITION SC STATEMENT R_BRACKET { STATEMENT_LIST } )
-        // This means init and incr can be *any* STATEMENT including IF/WHILE etc, which is unusual.
-        // Let's assume STATEMENT here implies something simple like Assignment or EmptyStatement.
-
-        // Sticking to generating OPS based on *your* grammar's parsing order:
-        // for ( init_stmt ; cond ; incr_stmt ) { body_list }
-        // OPS: [OPS_init_stmt] Label_Cond: [OPS_cond] Label_End JF [OPS_body_list] [OPS_incr_stmt] Label_Cond JMP Label_End:
-
-        Statement();                                                   // init_stmt (Generates OPS for init)
-        expect(";", "Expected ';' after init statement in for loop."); // Consumes ;
-        if (hasError)
-            return;
-
-        // Place the label for the start of condition check
-        AddToOPS(OPSElement(OPSCode::OP_LABEL, labelCond + ":")); // Add label definition to OPS
-
-        Condition(); // cond (Generates OPS for the loop condition)
-
-        // After condition, generate JF jump to exit the loop
-        AddToOPS(OPSElement(OPSCode::OP_LABEL, labelEnd)); // Add label reference to OPS
-        AddToOPS(OPSElement(OPSCode::OP_JF));              // Add JF command
-
-        expect(";", "Expected ';' after condition in for loop."); // Consumes ;
-        if (hasError)
-            return;
-
-        Statement(); // incr_stmt (Generates OPS for increment)
-
-        expect(")", "Expected ')' after increment statement in for loop."); // Consumes )
-        if (hasError)
-            return;
-        expect("{", "Expected '{' for for body.");
-        if (hasError)
-            return;
-        StatementList(); // Generates OPS for the loop body
-        expect("}", "Expected '}' after for body.");
-        if (hasError)
-            return;
-
-        // After loop body and incr, generate JMP to return to condition check
-        AddToOPS(OPSElement(OPSCode::OP_LABEL, labelCond)); // Add label reference to OPS
-        AddToOPS(OPSElement(OPSCode::OP_JMP));              // Add JMP command
 
         // Place the label for the end of the loop
         AddToOPS(OPSElement(OPSCode::OP_LABEL, labelEnd + ":")); // Add label definition to OPS
@@ -883,42 +744,6 @@ void Parser::printOPS() const
                 break;
             case OPSCode::OP_JF:
             case OPSCode::OP_JMP:
-                // For JF/JMP, the label name/target is the *next* element in the stream conceptually.
-                // In our OPS representation, the LABEL *reference* is stored *before* the JF/JMP.
-                // Let's print the label name stored as value for LABEL_TARGET if we had one.
-                // Since we store label names (strings) directly as value for LABEL, and use LABEL before JF/JMP,
-                // the print function needs to be careful.
-                // A simple approach: if the element is JF/JMP, assume the *previous* element was the label reference.
-                // Or, change OPSElement to store the label *reference* as a specific type with value = label name.
-                // Let's stick to storing label names (strings) for OP_LABEL.
-                // When printing JF/JMP, maybe look back? Or just print the command.
-                // Let's adjust OPSElement to have OP_LABEL_DEF and OP_LABEL_REF or just store the target index.
-                // Reworking OPSElement value type and AddToOPS calls for labels:
-                // OP_LABEL_DEF: value is string (name "L1:")
-                // OP_LABEL_REF: value is string (name "L1")
-                // JF/JMP value could be string (name) or size_t (index)
-                // Let's use string names for references and definitions.
-
-                // Re-evaluating print for JF/JMP: The label name is ADDED BEFORE JF/JMP.
-                // Example: L1 JF -> [..., {LABEL, "L1"}, {JF}]
-                // Printing [i]: JF, [i-1]: L1
-                // So, print JF, then look back for the label name? Clunky.
-
-                // Alternative OPS generation: Add label name *after* JF/JMP
-                // Example: JF L1 -> [..., {JF}, {LABEL_REF, "L1"}]
-                // This is also RPN, command followed by operand. Let's adjust semantic actions.
-                // This means JF/JMP takes 1 operand (the target label).
-
-                // Reworking semantic actions:
-                // AddToOPS("JF"); AddToOPS(labelElse); // JF comes first, then label reference
-                // AddToOPS("JMP"); AddToOPS(labelEnd); // JMP comes first, then label reference
-
-                // If we do this, the print loop needs to know JF/JMP take one operand *after* them.
-
-                // Let's assume the semantic actions are as originally written (LabelRef, then JF/JMP)
-                // Print function just prints the element.
-                // For JF/JMP, the label *name* (string) is stored in the *previous* element.
-                // Printing the element itself is sufficient if its type is just OPERATOR.
                 break;
             // For Operators (+, -, *, etc.), READ, PRINT, ASSIGN - operands are on the stack, print only the operator
             case OPSCode::OP_ADD:
