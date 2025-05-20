@@ -140,6 +140,7 @@ void Lexer::Programs(int c)
         break;
     case 8:
         op += currentChar;
+        advance();
         break;
     }
 }
@@ -340,17 +341,15 @@ Token Lexer::getNextToken()
         nextState = this->nextState(currentChar);
         if (nextState == ERR)
             current_state = nextState;
-
-         if (current_state == LES ||  current_state == GRT || current_state == EQU)
-            advance();
+        /*  if (current_state == LES || current_state == GRT || current_state == EQU)
+               advance();*/
         if (nextState == Z || current_state == ERR)
         {
-            if (current_state == START || nextState == LES || nextState == GRT || nextState == EQU)
+            if (current_state == START)
             {
                 current_state = nextState;
                 advance();
             }
-
             Token token = makeToken();
             d = 1;
             current_state = START;
@@ -385,7 +384,7 @@ string convert(string filename) // преобразование файла в о
     input.close();
     return text;
 }
-
+/*
 int main()
 {
     string filename = "C:\\C++proj\\Translator-interpreter_for_programming_language\\test.txt";
@@ -419,4 +418,4 @@ int main()
     }
     cout << "Error during lexical analysis";
     return 1;
-}
+}*/
