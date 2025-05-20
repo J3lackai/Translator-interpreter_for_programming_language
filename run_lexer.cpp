@@ -1,6 +1,7 @@
-#include <string>
+
 #include <iostream>
 #include <fstream>
+#include <string>
 #include <unordered_map>
 using namespace std;
 
@@ -339,11 +340,12 @@ Token Lexer::getNextToken()
         nextState = this->nextState(currentChar);
         if (nextState == ERR)
             current_state = nextState;
-        if (current_state == LES || current_state == GRT || current_state == EQU)
+
+         if (current_state == LES ||  current_state == GRT || current_state == EQU)
             advance();
         if (nextState == Z || current_state == ERR)
         {
-            if (current_state == START)
+            if (current_state == START || nextState == LES || nextState == GRT || nextState == EQU)
             {
                 current_state = nextState;
                 advance();
@@ -383,10 +385,10 @@ string convert(string filename) // преобразование файла в о
     input.close();
     return text;
 }
-/*
+
 int main()
 {
-    string filename = "C:\\C_Projects\\lexer\\hz\\test.txt";
+    string filename = "C:\\C++proj\\Translator-interpreter_for_programming_language\\test.txt";
     string text = convert(filename);
     if (text == "NULL")
     {
@@ -417,4 +419,4 @@ int main()
     }
     cout << "Error during lexical analysis";
     return 1;
-}*/
+}
