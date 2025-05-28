@@ -281,10 +281,6 @@ void Interpreter::run()
                         throw runtime_error("Runtime Error: Undefined label '" + target_label_name + "'.");
                     }
                 }
-                else
-                {
-                    program_counter++; // Пропускаем элемент с меткой, если условие истинно
-                }
                 break;
             }
             case OPSCode::OP_JMP:
@@ -365,6 +361,8 @@ void Interpreter::run()
             }
             case OPSCode::OP_PRINT:
             {
+                cout << endl
+                     << "--- Result ---" << endl;
                 variant<int, float, string> val = pop();
                 if (holds_alternative<int>(val))
                 {
@@ -376,7 +374,14 @@ void Interpreter::run()
                 }
                 else if (holds_alternative<string>(val))
                 {
-                    cout << get<string>(val) << endl;
+                    // Достаём значение переменной по таблице
+                    variant<int, float, string> result = symbol_table[get<string>(val)];
+                    if (holds_alternative<int>(result))
+                        cout << get<int>(result) << endl;
+                    else if (holds_alternative<float>(result))
+                        cout << get<float>(result) << endl;
+                    else
+                        throw runtime_error("Print Error: chtopopalo v steke.");
                 }
                 break;
             }
