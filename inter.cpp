@@ -55,7 +55,7 @@ public:
 };
 
 // Конструктор интерпретатора
-Interpreter::Interpreter(const vector<OPSElement> &code) : ops_code(code), undefined_var(false)
+Interpreter::Interpreter(const vector<OPSElement> &code) : undefined_var(false), ops_code(code)
 {
     // Разрешаем метки сразу после создания
     resolve_labels();
@@ -67,10 +67,8 @@ void Interpreter::resolve_labels()
     for (size_t i = 0; i < ops_code.size(); ++i)
     {
         if (ops_code[i].code == OPSCode::OP_LABEL)
-        {
             // Метки хранятся как строки, например "L1:"
             label_addresses[get<string>(ops_code[i].value)] = i;
-        }
     }
 }
 
@@ -114,16 +112,22 @@ variant<int, float, string> Interpreter::perform_binary_op(variant<int, float, s
             {
             case OPSCode::OP_LS:
                 result = f_op1 < f_op2;
+                break;
             case OPSCode::OP_LE:
                 result = f_op1 <= f_op2;
+                break;
             case OPSCode::OP_GS:
                 result = f_op1 > f_op2;
+                break;
             case OPSCode::OP_GE:
                 result = f_op1 >= f_op2;
+                break;
             case OPSCode::OP_EQ:
                 result = f_op1 == f_op2;
+                break;
             case OPSCode::OP_NE:
                 result = f_op1 != f_op2;
+                break;
             }
         }
         else
@@ -132,16 +136,22 @@ variant<int, float, string> Interpreter::perform_binary_op(variant<int, float, s
             {
             case OPSCode::OP_LS:
                 result = i_op1 < i_op2;
+                break;
             case OPSCode::OP_LE:
                 result = i_op1 <= i_op2;
+                break;
             case OPSCode::OP_GS:
                 result = i_op1 > i_op2;
+                break;
             case OPSCode::OP_GE:
                 result = i_op1 >= i_op2;
+                break;
             case OPSCode::OP_EQ:
                 result = i_op1 == i_op2;
+                break;
             case OPSCode::OP_NE:
                 result = i_op1 != i_op2;
+                break;
             }
         }
         return result;
@@ -271,14 +281,14 @@ void Interpreter::run()
             case OPSCode::OP_JF:
             {
                 variant<int, float, string> condition_result = pop();
-                string target_label_name = get<string>(ops_code[program_counter].value); // Метка находится на текущей позиции PC
+                string target_label_name = get<string>(ops_code[program_counter - 2].value);
 
                 if (is_false(condition_result))
                 {
                     // Переходим к адресу метки
                     if (label_addresses.count(target_label_name))
                     {
-                        program_counter = label_addresses[target_label_name];
+                        program_counter = label_addresses[target_label_name + ":"];
                     }
                     else
                     {
@@ -289,12 +299,12 @@ void Interpreter::run()
             }
             case OPSCode::OP_JMP:
             {
-                string target_label_name = get<string>(ops_code[program_counter].value); // Метка находится на текущей позиции PC
+                string target_label_name = get<string>(ops_code[program_counter - 2].value); // Метка находится на текущей позиции PC
 
                 // Безусловный переход
                 if (label_addresses.count(target_label_name))
                 {
-                    program_counter = label_addresses[target_label_name];
+                    program_counter = label_addresses[target_label_name + ":"];
                 }
                 else
                 {
@@ -385,9 +395,9 @@ void Interpreter::run()
                     // Достаём значение переменной по таблице
                     variant<int, float, string> result = symbol_table[get<string>(val)];
                     if (holds_alternative<int>(result))
-                        cout << get<int>(result) << endl;
+                        cout << "value of " << get<string>(val) << ": " << get<int>(result) << endl;
                     else if (holds_alternative<float>(result))
-                        cout << get<float>(result) << endl;
+                        cout << "value of " << get<string>(val) << ": " << get<float>(result) << endl;
                     else
                         throw runtime_error("Print Error: chtopopalo v steke.");
                 }
