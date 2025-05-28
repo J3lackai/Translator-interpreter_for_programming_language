@@ -14,6 +14,7 @@ private:
     //   variant позволяет хранить int или float
     vector<variant<int, float, string>> runtime_stack;
 
+    bool undefined_var;
     // Таблица переменных
     // Хранит имена переменных и их текущие значения (int или float)
     unordered_map<string, variant<int, float, string>> symbol_table;
@@ -54,7 +55,7 @@ public:
 };
 
 // Конструктор интерпретатора
-Interpreter::Interpreter(const vector<OPSElement> &code) : ops_code(code)
+Interpreter::Interpreter(const vector<OPSElement> &code) : ops_code(code), undefined_var(false)
 {
     // Разрешаем метки сразу после создания
     resolve_labels();
@@ -225,10 +226,13 @@ void Interpreter::run()
                 {
                     push(var_name); // symbol_table[var_name]
                 }
+                else if (undefined_var) // За раз можем объявить только одну переменную
+                                        // Если уже встретили уже вторую не объявленную это точно исключение
+                    throw runtime_error("Runtime error: Undefined variable");
                 else
                 {
-                    symbol_table[var_name] = 0;
-                    push(var_name); // symbol_table[var_name]
+                    push(var_name);       // symbol_table[var_name]
+                    undefined_var = true; // Встретили не объявленную переменную, обработаем позже
                 }
                 break;
             }
@@ -311,9 +315,11 @@ void Interpreter::run()
                 //  string var_name = get<string>(pop());
 
                 string var_name = get<string>(pop()); // Получаем имя переменной с вершины стека
-                // string var_name = get<string>(current_element.value);
-                // cout << var_name << "\n\n\n";
-                symbol_table[var_name] = value_to_assign; // Присваиваем значение
+                if (undefined_var && symbol_table.count(var_name))
+                    throw runtime_error("Runtime Error: Undefined variable.");
+                // Объявляем ту что на вершине стека иначе ошибка
+                symbol_table[var_name] = value_to_assign;
+                undefined_var = false;
                 break;
             }
             // --- Ввод/Вывод ---
@@ -338,6 +344,7 @@ void Interpreter::run()
                     if (pos_int == input_str.length())
                     { // Вся строка - int
                         symbol_table[var_name] = int_val;
+                        undefined_var = false;
                     }
                     else
                     { // Может быть float
@@ -346,6 +353,7 @@ void Interpreter::run()
                         if (pos_float == input_str.length())
                         { // Вся строка - float
                             symbol_table[var_name] = float_val;
+                            undefined_var = false;
                         }
                         else
                         {
@@ -361,8 +369,7 @@ void Interpreter::run()
             }
             case OPSCode::OP_PRINT:
             {
-                cout << endl
-                     << "--- Result ---" << endl;
+
                 variant<int, float, string> val = pop();
                 if (holds_alternative<int>(val))
                 {
@@ -423,6 +430,8 @@ int main()
     {
         printOPS(ops_code);
         Interpreter inter(ops_code);
+        cout << endl
+             << "--- Inter running... ---" << endl;
         inter.run();
         return 0;
     }
