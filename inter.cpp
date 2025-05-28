@@ -14,7 +14,7 @@ private:
     //   variant позволяет хранить int или float
     vector<variant<int, float, string>> runtime_stack;
 
-    // Таблица символов (переменных)
+    // Таблица переменных
     // Хранит имена переменных и их текущие значения (int или float)
     unordered_map<string, variant<int, float, string>> symbol_table;
 
@@ -259,21 +259,16 @@ void Interpreter::run()
                 break;
             }
 
-            // --- Управление потоком ---
+                // --- Управление потоком ---
+
             case OPSCode::OP_LABEL:
                 // Метки - это просто маркеры, интерпретатор их пропускает
                 break;
             case OPSCode::OP_JF:
             {
-                // Ожидаем, что следующая инструкция - это OP_LABEL с именем метки
-                if (program_counter >= ops_code.size() || ops_code[program_counter].code != OPSCode::OP_LABEL)
-                {
-                    throw runtime_error("Internal Error: JF expected a label reference.");
-                }
-                string target_label_name = get<string>(ops_code[program_counter].value);
-                program_counter++; // Пропускаем элемент с меткой
-
                 variant<int, float, string> condition_result = pop();
+                string target_label_name = get<string>(ops_code[program_counter].value); // Метка находится на текущей позиции PC
+
                 if (is_false(condition_result))
                 {
                     // Переходим к адресу метки
@@ -286,17 +281,15 @@ void Interpreter::run()
                         throw runtime_error("Runtime Error: Undefined label '" + target_label_name + "'.");
                     }
                 }
+                else
+                {
+                    program_counter++; // Пропускаем элемент с меткой, если условие истинно
+                }
                 break;
             }
             case OPSCode::OP_JMP:
             {
-                // Ожидаем, что следующая инструкция - это OP_LABEL с именем метки
-                if (program_counter >= ops_code.size() || ops_code[program_counter].code != OPSCode::OP_LABEL)
-                {
-                    throw runtime_error("Internal Error: JMP expected a label reference.");
-                }
-                string target_label_name = get<string>(ops_code[program_counter].value);
-                program_counter++; // Пропускаем элемент с меткой
+                string target_label_name = get<string>(ops_code[program_counter].value); // Метка находится на текущей позиции PC
 
                 // Безусловный переход
                 if (label_addresses.count(target_label_name))
