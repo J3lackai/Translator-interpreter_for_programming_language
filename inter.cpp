@@ -14,7 +14,7 @@ private:
     //   variant позволяет хранить int или float
     vector<variant<int, float, string>> runtime_stack;
 
-    bool undefined_var;
+    bool undefined_var; // отслеживаем необъявленные переменные
     // Таблица переменных
     // Хранит имена переменных и их текущие значения (int или float)
     unordered_map<string, variant<int, float, string>> symbol_table;
@@ -369,7 +369,8 @@ void Interpreter::run()
             }
             case OPSCode::OP_PRINT:
             {
-
+                if (undefined_var)
+                    throw runtime_error("Runtime Error: Undefined variable.");
                 variant<int, float, string> val = pop();
                 if (holds_alternative<int>(val))
                 {
