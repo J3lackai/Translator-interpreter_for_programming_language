@@ -7,6 +7,6 @@ else {
 };
 while (x > 0) {
 	aboba = aboba + x;
-	x = x - 1
+	x = x - 1;
 };
 print (x);
