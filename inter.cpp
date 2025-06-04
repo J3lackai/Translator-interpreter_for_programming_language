@@ -75,23 +75,6 @@ void Interpreter::resolve_labels()
 // Выполнение бинарных операций (арифметика и сравнения)
 variant<int, float, string> Interpreter::perform_binary_op(variant<int, float, string> op1, variant<int, float, string> op2, OPSCode op_code)
 {
-    // Нужна обработка переменных
-    if (holds_alternative<string>(op1))
-    {
-        string var1 = get<string>(op1);
-        if (symbol_table.count(var1))
-            op1 = symbol_table[var1];
-        else
-            throw runtime_error("Runtime Error: Undefined variable.");
-    }
-    if (holds_alternative<string>(op2))
-    {
-        string var2 = get<string>(op2);
-        if (symbol_table.count(var2))
-            op2 = symbol_table[var2];
-        else
-            throw runtime_error("Runtime Error: Undefined variable.");
-    }
     // Обработка типов: если один из операндов float, результат float
     bool is_float = holds_alternative<float>(op1) || holds_alternative<float>(op2);
 
@@ -252,13 +235,6 @@ void Interpreter::run()
             case OPSCode::OP_SUB:
             case OPSCode::OP_MUL:
             case OPSCode::OP_DIV:
-            {
-                variant<int, float, string> op2 = pop();
-                variant<int, float, string> op1 = pop();
-                push(perform_binary_op(op1, op2, current_element.code));
-                break;
-            }
-
             // --- Сравнения ---
             case OPSCode::OP_LS:
             case OPSCode::OP_LE:
@@ -269,6 +245,22 @@ void Interpreter::run()
             {
                 variant<int, float, string> op2 = pop();
                 variant<int, float, string> op1 = pop();
+                while (holds_alternative<string>(op1)) 
+                {
+                    string var = get<string>(op1);
+                    if (symbol_table.count(var))
+                        op1 = symbol_table[var];
+                    else
+                        throw runtime_error("Runtime Error: Undefined variable.");
+                }
+                while (holds_alternative<string>(op2))
+                {
+                    string var = get<string>(op2);
+                    if (symbol_table.count(var))
+                        op2 = symbol_table[var];
+                    else
+                        throw runtime_error("Runtime Error: Undefined variable.");
+                }
                 push(perform_binary_op(op1, op2, current_element.code));
                 break;
             }
@@ -316,15 +308,15 @@ void Interpreter::run()
             // --- Память ---
             case OPSCode::OP_ASSIGN:
             {
-                variant<int, float, string> value_to_assign = pop();
+                string var_name = get<string>(pop()); // Получаем имя переменной с вершины стека
                 // Ожидаем, что следующая инструкция - это OP_IDENT с именем переменной  || !holds_alternative<string>(runtime_stack.back())
                 if (runtime_stack.empty())
                 {
                     throw runtime_error("Internal Error: ASSIGN expected variable name on stack.");
                 }
                 //  string var_name = get<string>(pop());
-
-                string var_name = get<string>(pop()); // Получаем имя переменной с вершины стека
+                variant<int, float, string> value_to_assign = pop();
+                
                 if (undefined_var && symbol_table.count(var_name))
                     throw runtime_error("Runtime Error: Undefined variable.");
                 // Объявляем ту что на вершине стека иначе ошибка
