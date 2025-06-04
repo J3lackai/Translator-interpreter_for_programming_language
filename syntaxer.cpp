@@ -7,7 +7,7 @@
 #include <stdexcept> // For std::runtime_error, std::invalid_argument, std::out_of_range
 #include <variant>
 #include <iomanip> // For std::fixed, std::setprecision
-#include "run_lexer.cpp"
+#include "lexer.cpp"
 // --- ОПРЕДЕЛЕНИЕ ФОРМАТА ОПС (Задача 6) ---
 // Перечисление для кодов операций ОПС
 enum class OPSCode
